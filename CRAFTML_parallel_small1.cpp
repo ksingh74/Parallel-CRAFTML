@@ -686,7 +686,7 @@ int train_tree(vector<int> instances,int level)
 
   
     
-    #pragma omp parallel for num_threads(k)
+    #pragma omp parallel for num_threads(2)
     for(int i=0;i<k;++i)
     {
         if(!(partition[i].empty()))

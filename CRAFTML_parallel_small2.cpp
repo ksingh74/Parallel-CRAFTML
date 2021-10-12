@@ -282,7 +282,7 @@ bool test_leaf(vector<int> instances,int level)
     // cout << "no. of instances : " << n << endl;
     // all the instances have the same features
     bool cont=true;
-    #pragma omp parallel for num_threads(min(n,5)) reduction (&:cont)
+    #pragma omp parallel for num_threads(min(n,2)) reduction (&:cont)
     for(int i=1;i<n;++i)
     {
         if(!cont)
@@ -315,7 +315,7 @@ bool test_leaf(vector<int> instances,int level)
 
     // all the instances have the same labels
     cont=true;
-    #pragma omp parallel for num_threads(min(n,5)) reduction (&:cont)
+    #pragma omp parallel for num_threads(min(n,2)) reduction (&:cont)
     for(int i=1;i<n;++i)
     {
         if(!cont)
@@ -380,7 +380,7 @@ vector<int> spherical_kmeans(vector<int> inds)
     
     // Store magnitudes of data points 
     vector<double> mags(n,0);
-    #pragma omp parallel for num_threads(min(n,5))
+    #pragma omp parallel for num_threads(min(n,2))
     for(int i=0;i<n;i++)
     {
         int id = inds[i];
@@ -393,7 +393,7 @@ vector<int> spherical_kmeans(vector<int> inds)
     }
 
     // Choose the first k points as centroids 
-    #pragma omp parallel for num_threads(min(k,5))
+    #pragma omp parallel for num_threads(min(k,2))
     for(int i=0;i<k;i++)
     {
         int id = inds[i];
@@ -425,13 +425,13 @@ vector<int> spherical_kmeans(vector<int> inds)
         //     new_centroids.pb(vec);
         // }
         
-        #pragma omp parallel for num_threads(min(n,5))
+        #pragma omp parallel for num_threads(min(n,2))
         for(int i=0;i<n;i++)                                                                                    
         {
             int id = inds[i];
             // Find the distance of point from the centroids.
             vector<pair<double,int>> dist(k);
-            #pragma omp parallel for num_threads(min(k,5))
+            #pragma omp parallel for num_threads(min(k,2))
             for(int j=0;j<k;j++)
             {
                 // find dot product of unit vectors of Xp[id] and centroid[j]
@@ -465,7 +465,7 @@ vector<int> spherical_kmeans(vector<int> inds)
             }
         }
         // Normalize the new centroids.                                                        
-        #pragma omp parallel for num_threads(min(k,5))
+        #pragma omp parallel for num_threads(min(2,k))
         for(int j=0;j<k;j++)
         {
             double res = 0;
@@ -488,7 +488,7 @@ vector<int> spherical_kmeans(vector<int> inds)
         // Check for difference in previous and current centroid.
         int f = 0;
         double eps = 1e-8;
-        #pragma omp parallel for num_threads(min(k,5)) reduction(+:f)
+        #pragma omp parallel for num_threads(min(2,5)) reduction(+:f)
         for(int i=0;i<k;i++)
         {
             for(auto u:centroids[i])
@@ -534,7 +534,7 @@ vector<umap<int,double>> buildClassifier(vector<int> labels,vector<int> inds)
     //     centroids.pb(vec);
     // }
     int n = inds.size();
-    #pragma openmp parallel for num_threads(min(5,n))
+    #pragma openmp parallel for num_threads(min(2,n))
     for(int i=0;i<n;i++)
     {
         int id = inds[i];
@@ -549,7 +549,7 @@ vector<umap<int,double>> buildClassifier(vector<int> labels,vector<int> inds)
                 centroids[labels[i]][u.ff] += u.ss/mag;                                                            
         }
     }
-    #pragma omp parallel for num_threads(min(5,k))
+    #pragma omp parallel for num_threads(min(2,k))
     for(int i=0;i<k;i++)
     {
         double mag = 0;
@@ -573,7 +573,7 @@ vector< unordered_map<int,double> > train_node_classifier(vector<int> inds)
     shuffle(all(inds),rng); 
     int smp = min(sz(inds),20000);
     vector<int> samples(smp,0);
-    #pragma omp parallel for num_threads(min(5,smp))
+    #pragma omp parallel for num_threads(min(2,smp))
     for(int i=0;i<smp;i++)
     {
         // samples.pb(inds[i]);
@@ -713,7 +713,7 @@ int train_tree(vector<int> instances,int level)
 
   
     
-    #pragma omp parallel for num_threads(k)
+    #pragma omp parallel for num_threads(2)
     for(int i=0;i<k;++i)
     {
         if(!(partition[i].empty()))
