@@ -657,7 +657,7 @@ int train_tree(vector<int> instances,int level)
     {   
         id=NXT_NODE_ID;
         NXT_NODE_ID++;
-        cout<<"processing node "<<id<<"\n";
+        // cout<<"processing node "<<id<<"\n";
         if(leaf)
         {
             leaf_mrk.push_back(true);
