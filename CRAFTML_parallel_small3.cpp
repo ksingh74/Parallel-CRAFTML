@@ -31,7 +31,9 @@ const int n_leaf = 10;
 vector< unordered_map<int,double> > X; // Feature Matrix
 vector< unordered_map<int,double> > Y; // Label matrix
 vector< unordered_map<int,double> > Xp; // Projected feature Matrix
+vector< vector<pair<int,double> > > Xp1;
 vector< unordered_map<int,double> > Yp; // Projected label matrix
+vector< vector<pair<int,double> > > Yp1;
 vector< unordered_map<int,double> > mean; // mean vector for storing meanLabels at leaves
 vector< vector<int> > child_set; // set of children ids for a given node
 vector<int> pos; // reference to positions for a node id in mean vector and classifier vector
@@ -184,24 +186,38 @@ ll getHash(int i,ll mod,ll seed)
 void ProjectX(int tree,int v)
 {
     unordered_map<int,double> tp;
+    vector<pair<int,double>> tp1;
     Xp[v] = tp;
+    Xp1[v]= tp1;
     for(auto u:X[v])
         Xp[v][ProjColX[tree][u.ff]] += (double)ProjSignX[tree][u.ff]*u.ss;
+    for(auto u:Xp[v])
+        Xp1[v].push_back({u.ff,u.ss});
 }
 
 void ProjectY(int tree,int v)
 {
     unordered_map<int,double> tp;
+    vector<pair<int,double>> tp1;
     Yp[v] = tp;
+    Yp1[v]= tp1;
     for(auto u:Y[v])
         Yp[v][ProjColY[tree][u.ff]] += (double)ProjSignY[tree][u.ff]*u.ss;
+    for(auto u:Yp[v])
+        Yp1[v].push_back({u.ff,u.ss});
 }
 
 void compute_magnitude(int i)
 {
     double mg = 0;
-    for(auto u:Xp[i])
-        mg += u.second*u.second;
+   
+    int sz=Xp1[i].size();
+    // for(auto u:Xp[i])
+    //     mg += u.second*u.second;
+    #pragma omp parallel for num_threads(min(2,sz)) reduction(+:mg)
+    for(int j=0;j<sz;j++)
+        mg+=(Xp1[i][j].ss)*(Xp1[i][j].ss);
+   
     Mg[i] = mg;
 }
 
@@ -247,10 +263,13 @@ void __init(int trees)
     }  
 
     unordered_map<int,double> utp;
+    vector<pair<int,double>> utp1;
     for(int i=0;i<N;++i)
     {
         Xp.push_back(utp);
+        Xp1.push_back(utp1);
         Yp.push_back(utp);
+        Yp1.push_back(utp1);
     } 
 
     Mg.resize(N);
@@ -389,8 +408,12 @@ vector<int> spherical_kmeans(vector<int> inds)
         int id = inds[i];
 
         double res = 0;
-        for(auto u:Yp[id])
-            res = res + u.ss*u.ss;
+        int sz=Yp1[id].size();
+        #pragma omp parallel for num_threads(min(2,sz)) reduction(+:res)
+        for(int j=0;j<sz;j++)
+            res+=(Yp1[id][j].ss)*(Yp1[id][j].ss);
+        // for(auto u:Yp[id])
+        //     res = res + u.ss*u.ss;
         
         mags[i] = sqrt(res);
     }
@@ -439,7 +462,7 @@ vector<int> spherical_kmeans(vector<int> inds)
             {
                 // find dot product of unit vectors of Xp[id] and centroid[j]
                 double d = 0;
-                for(auto u:Yp[id])
+                for(auto u:Yp[id])                                                  //2nd Nest, so not done
                 {
                     auto it = centroids[j].find(u.ff);
                     if(it!=centroids[j].end() && mags[i])
@@ -544,11 +567,16 @@ vector<umap<int,double>> buildClassifier(vector<int> labels,vector<int> inds)
         int id = inds[i];
 
         double mag = 0;
-        for(auto u:Xp[id])
-            mag = mag + u.ss*u.ss;
+        int sz=Xp[id].size();
+        #pragma omp parallel for num_threads(min(2,sz)) reduction(+:mag)
+        for(int j=0;j<sz;j++)
+            mag+=(Xp1[id][j].ss)*(Xp1[id][j].ss);
+        // for(auto u:Xp[id])
+        //     mag = mag + u.ss*u.ss;
         if(mag!=0)
         {
             mag = sqrt(mag);
+        
             for(auto u:Xp[id])
                 centroids[labels[i]][u.ff] += u.ss/mag;                                                            
         }
@@ -598,6 +626,10 @@ vector< unordered_map<int,double> > train_node_classifier(vector<int> inds)
 double similarity(int u,int p,int i,int flag)
 {
     double prd = 0;
+    int sz=Xp1[u].size();
+    // #pragma omp parallel for num_threads(min(2,sz)) reduction(+:prd)
+    // for(int j=0;j<sz;j++)
+    //     prd+=(Xp1[u][j].second)*(classifier[p][i][Xp1[u][j].first]);
     for(auto v:Xp[u])
         prd += v.second*classifier[p][i][v.first];
     return 1.0-(prd/Mg[u]);
@@ -610,6 +642,7 @@ int classify(int p,int v,int flag)
 {
     double mx = 1e12;
     int cid = 0;
+    int sz=classifier[p].size();
     
     for(int i=0;i<(int)classifier[p].size();++i)                                           //PROBLEM PARALLELIZING
     {
@@ -663,6 +696,11 @@ int train_tree(vector<int> instances,int level)
                     continue;
                 
                 double prd = 0;
+                int sz=Xp1[v].size();
+                // #pragma omp parallel for num_threads(min(2,sz)) reduction(+:prd)
+                // for(int j=0;j<sz;j++)
+                //     prd+=(Xp1[v][j].second)*(current_classifier[i][Xp1[v][j].first]);
+                
                 for(auto z:Xp[v])
                     prd += z.second*current_classifier[i][z.first];
                 double sim=1.0-(prd/Mg[v]);
@@ -674,7 +712,8 @@ int train_tree(vector<int> instances,int level)
             }
             exist[cid] = 1; 
             partition[cid].push_back(v);
-        }    
+        }
+        #pragma omp parallel for num_threads(min(2,k)) reduction(+:sum)    
         for(int i=0;i<k;++i)
             sum += exist[i];
         

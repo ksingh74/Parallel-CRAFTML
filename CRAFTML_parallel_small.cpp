@@ -187,6 +187,7 @@ void ProjectX(int tree,int v)
     Xp[v] = tp;
     for(auto u:X[v])
         Xp[v][ProjColX[tree][u.ff]] += (double)ProjSignX[tree][u.ff]*u.ss;
+  
 }
 
 void ProjectY(int tree,int v)
